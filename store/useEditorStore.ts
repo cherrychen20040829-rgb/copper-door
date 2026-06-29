@@ -157,6 +157,7 @@ interface EditorState {
     count: number,
     spacing: number
   ) => void;
+  distributeSelected: (direction: "horizontal" | "vertical") => void;
   undo: () => void;
   redo: () => void;
   beginHistoryBatch: () => void;
@@ -2041,6 +2042,79 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       pendingDrawTool: null,
       pendingCurvedShapeKind: null,
       isDimensionMode: false,
+    }));
+  },
+
+  distributeSelected: (direction) => {
+    const state = get();
+    const selectedShapes = getSelectedShapes(state);
+    if (selectedShapes.length < 3) {
+      return;
+    }
+
+    const sorted = [...selectedShapes].sort((a, b) => {
+      const aBox = getShapeBoundingBox(a);
+      const bBox = getShapeBoundingBox(b);
+      return direction === "horizontal" ? aBox.x - bBox.x : aBox.y - bBox.y;
+    });
+    const boxes = sorted.map((shape) => ({
+      shape,
+      box: getShapeBoundingBox(shape),
+    }));
+    const first = boxes[0];
+    const last = boxes[boxes.length - 1];
+
+    if (!first || !last) {
+      return;
+    }
+
+    const totalSpan =
+      direction === "horizontal"
+        ? last.box.x + last.box.width - first.box.x
+        : last.box.y + last.box.height - first.box.y;
+    const totalSize = boxes.reduce(
+      (sum, item) =>
+        sum + (direction === "horizontal" ? item.box.width : item.box.height),
+      0
+    );
+    const gap = (totalSpan - totalSize) / (boxes.length - 1);
+    const deltas = new Map<string, { dx: number; dy: number }>();
+    let cursor =
+      direction === "horizontal"
+        ? first.box.x + first.box.width
+        : first.box.y + first.box.height;
+
+    boxes.slice(1, -1).forEach((item) => {
+      const targetStart = cursor + gap;
+      const currentStart =
+        direction === "horizontal" ? item.box.x : item.box.y;
+      const delta = targetStart - currentStart;
+      deltas.set(item.shape.id, {
+        dx: direction === "horizontal" ? delta : 0,
+        dy: direction === "vertical" ? delta : 0,
+      });
+      cursor =
+        targetStart +
+        (direction === "horizontal" ? item.box.width : item.box.height);
+    });
+
+    if (
+      Array.from(deltas.values()).every(
+        (delta) => Math.abs(delta.dx) < 0.001 && Math.abs(delta.dy) < 0.001
+      )
+    ) {
+      return;
+    }
+
+    set((state) => ({
+      ...getHistoryUpdate(state),
+      shapes: state.shapes.map((shape) => {
+        const delta = deltas.get(shape.id);
+        return delta ? moveShape(shape, delta.dx, delta.dy) : shape;
+      }),
+      selectedId: state.selectedId,
+      selectedIds: state.selectedIds,
+      selectedLayerIndex: state.selectedLayerIndex,
     }));
   },
 

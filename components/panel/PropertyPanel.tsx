@@ -1192,6 +1192,38 @@ function SelectionActionsPanel({ count }: { count: number }) {
   );
 }
 
+function DistributeControls({ count }: { count: number }) {
+  const distributeSelected = useEditorStore(
+    (state) => state.distributeSelected
+  );
+
+  if (count < 3) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-medium text-slate-500">等距分布</p>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => distributeSelected("horizontal")}
+          className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+        >
+          横向等距
+        </button>
+        <button
+          type="button"
+          onClick={() => distributeSelected("vertical")}
+          className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+        >
+          纵向等距
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function GroupPropertyPanel({ group }: { group: GroupShape }) {
   const ungroupSelected = useEditorStore((state) => state.ungroupSelected);
 
@@ -1424,6 +1456,8 @@ export function PropertyPanel() {
         </div>
 
         <SelectionActionsPanel count={selectedIds.length} />
+
+        <DistributeControls count={selectedIds.length} />
 
         <OrderControls />
 
