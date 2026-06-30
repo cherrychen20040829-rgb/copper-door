@@ -158,6 +158,10 @@ interface EditorState {
     spacing: number
   ) => void;
   distributeSelected: (direction: "horizontal" | "vertical") => void;
+  setDistanceBetweenSelected: (
+    direction: "horizontal" | "vertical",
+    distance: number
+  ) => void;
   undo: () => void;
   redo: () => void;
   beginHistoryBatch: () => void;
@@ -2112,6 +2116,55 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         const delta = deltas.get(shape.id);
         return delta ? moveShape(shape, delta.dx, delta.dy) : shape;
       }),
+      selectedId: state.selectedId,
+      selectedIds: state.selectedIds,
+      selectedLayerIndex: state.selectedLayerIndex,
+    }));
+  },
+
+  setDistanceBetweenSelected: (direction, distance) => {
+    const state = get();
+    const ids = getSelectedIds(state);
+    const selectedShapes = getSelectedShapes(state).filter(
+      (shape) => shape.type !== "dimension"
+    );
+    if (ids.length !== 2 || selectedShapes.length !== 2) {
+      return;
+    }
+
+    const first = state.shapes.find((shape) => shape.id === ids[0]);
+    const second = state.shapes.find((shape) => shape.id === ids[1]);
+    if (!first || !second || first.type === "dimension" || second.type === "dimension") {
+      return;
+    }
+
+    const safeDistance = Math.max(distance, 0);
+    const firstBox = getShapeBoundingBox(first);
+    const secondBox = getShapeBoundingBox(second);
+    let dx = 0;
+    let dy = 0;
+
+    if (direction === "horizontal") {
+      if (secondBox.x >= firstBox.x) {
+        dx = firstBox.x + firstBox.width + safeDistance - secondBox.x;
+      } else {
+        dx = firstBox.x - safeDistance - secondBox.width - secondBox.x;
+      }
+    } else if (secondBox.y >= firstBox.y) {
+      dy = firstBox.y + firstBox.height + safeDistance - secondBox.y;
+    } else {
+      dy = firstBox.y - safeDistance - secondBox.height - secondBox.y;
+    }
+
+    if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) {
+      return;
+    }
+
+    set((state) => ({
+      ...getHistoryUpdate(state),
+      shapes: state.shapes.map((shape) =>
+        shape.id === second.id ? moveShape(shape, dx, dy) : shape
+      ),
       selectedId: state.selectedId,
       selectedIds: state.selectedIds,
       selectedLayerIndex: state.selectedLayerIndex,

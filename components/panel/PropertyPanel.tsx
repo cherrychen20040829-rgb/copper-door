@@ -16,6 +16,7 @@ import type {
 } from "@/types/shape";
 import {
   computeNestedRectLayers,
+  getShapeBoundingBox,
   getLineAngleDeg,
   getLineLength,
   getNestedRectLayerLogicalSize,
@@ -70,6 +71,7 @@ const DIMENSION_STYLE_OPTIONS: Array<{
   { label: "蓝色辅助", value: "blue-assist" },
   { label: "标准箭头", value: "standard-arrow" },
   { label: "工程斜线", value: "engineering-slash" },
+  { label: "圆点端点", value: "dot-end" },
   { label: "虚线标注", value: "dashed" },
 ];
 
@@ -134,6 +136,7 @@ function PropertyInput({
   readOnly = false,
   onChange,
   onBlur,
+  onKeyDown,
 }: {
   label: string;
   value: string;
@@ -141,6 +144,7 @@ function PropertyInput({
   readOnly?: boolean;
   onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onBlur?: () => void;
+  onKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
 }) {
   return (
     <label className="block">
@@ -154,6 +158,7 @@ function PropertyInput({
         readOnly={readOnly}
         onChange={onChange}
         onBlur={onBlur}
+        onKeyDown={onKeyDown}
         className={`w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 ${
           readOnly ? "cursor-default bg-slate-50 text-slate-500" : ""
         }`}
@@ -957,6 +962,117 @@ function OrderControls() {
   );
 }
 
+function getEdgeGap(
+  first: ReturnType<typeof getShapeBoundingBox>,
+  second: ReturnType<typeof getShapeBoundingBox>,
+  direction: "horizontal" | "vertical"
+): number {
+  if (direction === "horizontal") {
+    if (first.x + first.width <= second.x) {
+      return second.x - (first.x + first.width);
+    }
+    if (second.x + second.width <= first.x) {
+      return first.x - (second.x + second.width);
+    }
+    return 0;
+  }
+
+  if (first.y + first.height <= second.y) {
+    return second.y - (first.y + first.height);
+  }
+  if (second.y + second.height <= first.y) {
+    return first.y - (second.y + second.height);
+  }
+  return 0;
+}
+
+function TwoShapeDistancePanel() {
+  const shapes = useEditorStore((state) => state.shapes);
+  const selectedIds = useEditorStore((state) => state.selectedIds);
+  const setDistanceBetweenSelected = useEditorStore(
+    (state) => state.setDistanceBetweenSelected
+  );
+  const selectedShapes = selectedIds
+    .map((id) => shapes.find((shape) => shape.id === id))
+    .filter((shape): shape is Exclude<typeof shape, undefined> => Boolean(shape))
+    .filter((shape) => shape.type !== "dimension");
+
+  if (selectedIds.length !== 2 || selectedShapes.length !== 2) {
+    return null;
+  }
+
+  const firstBox = getShapeBoundingBox(selectedShapes[0]);
+  const secondBox = getShapeBoundingBox(selectedShapes[1]);
+  const horizontalDistance = Math.round(
+    getEdgeGap(firstBox, secondBox, "horizontal")
+  );
+  const verticalDistance = Math.round(
+    getEdgeGap(firstBox, secondBox, "vertical")
+  );
+  const [fields, setFields] = useState({
+    horizontal: String(horizontalDistance),
+    vertical: String(verticalDistance),
+  });
+
+  useEffect(() => {
+    setFields({
+      horizontal: String(horizontalDistance),
+      vertical: String(verticalDistance),
+    });
+  }, [horizontalDistance, verticalDistance, selectedIds.join(",")]);
+
+  const applyDistance = (
+    direction: "horizontal" | "vertical",
+    value: string
+  ) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+      return;
+    }
+    setDistanceBetweenSelected(direction, Math.max(parsed, 0));
+  };
+  const handleKeyDown =
+    (direction: "horizontal" | "vertical") =>
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Enter") {
+        applyDistance(direction, event.currentTarget.value);
+        event.currentTarget.blur();
+      }
+    };
+
+  return (
+    <div className="space-y-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+      <p className="text-xs font-medium text-slate-500">两图形距离</p>
+      <PropertyInput
+        label="水平距离 mm"
+        value={fields.horizontal}
+        min={0}
+        onChange={(event) =>
+          setFields((current) => ({
+            ...current,
+            horizontal: event.target.value,
+          }))
+        }
+        onBlur={() => applyDistance("horizontal", fields.horizontal)}
+        onKeyDown={handleKeyDown("horizontal")}
+      />
+      <PropertyInput
+        label="垂直距离 mm"
+        value={fields.vertical}
+        min={0}
+        onChange={(event) =>
+          setFields((current) => ({
+            ...current,
+            vertical: event.target.value,
+          }))
+        }
+        onBlur={() => applyDistance("vertical", fields.vertical)}
+        onKeyDown={handleKeyDown("vertical")}
+      />
+    </div>
+  );
+}
+
 function ArrayCopyPanel({
   shape,
 }: {
@@ -1454,6 +1570,8 @@ export function PropertyPanel() {
           </h2>
           <p className="mt-1 text-sm text-slate-600">多选</p>
         </div>
+
+        <TwoShapeDistancePanel />
 
         <SelectionActionsPanel count={selectedIds.length} />
 

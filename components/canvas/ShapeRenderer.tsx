@@ -101,7 +101,6 @@ function getDimensionStyle(style: DimensionStylePreset = "blue-assist") {
     return {
       stroke: "#374151",
       extension: "#6b7280",
-      textBg: "#ffffff",
       dash: undefined,
       end: "arrow" as const,
       strokeWidth: 1.4,
@@ -112,9 +111,18 @@ function getDimensionStyle(style: DimensionStylePreset = "blue-assist") {
     return {
       stroke: "#374151",
       extension: "#9ca3af",
-      textBg: "#ffffff",
       dash: undefined,
       end: "slash" as const,
+      strokeWidth: 1.4,
+    };
+  }
+
+  if (style === "dot-end") {
+    return {
+      stroke: "#374151",
+      extension: "#9ca3af",
+      dash: undefined,
+      end: "dot" as const,
       strokeWidth: 1.4,
     };
   }
@@ -123,7 +131,6 @@ function getDimensionStyle(style: DimensionStylePreset = "blue-assist") {
     return {
       stroke: "#475569",
       extension: "#94a3b8",
-      textBg: "#f8fafc",
       dash: "6 4",
       end: "arrow" as const,
       strokeWidth: 1.25,
@@ -133,7 +140,6 @@ function getDimensionStyle(style: DimensionStylePreset = "blue-assist") {
   return {
     stroke: "#334e68",
     extension: "#93a4b8",
-    textBg: "#eff6ff",
     dash: undefined,
     end: "arrow" as const,
     strokeWidth: 1.35,
@@ -355,6 +361,35 @@ function getDimensionRenderData(
   };
 }
 
+function getSplitDimensionLine(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  text: { x: number; y: number },
+  gap: number
+) {
+  const length = Math.max(distance(start, end), 1);
+  const ux = (end.x - start.x) / length;
+  const uy = (end.y - start.y) / length;
+  const projection = (text.x - start.x) * ux + (text.y - start.y) * uy;
+  const gapStart = Math.max(0, projection - gap / 2);
+  const gapEnd = Math.min(length, projection + gap / 2);
+
+  return [
+    {
+      x1: start.x,
+      y1: start.y,
+      x2: start.x + ux * gapStart,
+      y2: start.y + uy * gapStart,
+    },
+    {
+      x1: start.x + ux * gapEnd,
+      y1: start.y + uy * gapEnd,
+      x2: end.x,
+      y2: end.y,
+    },
+  ];
+}
+
 function ControlPoint({
   x,
   y,
@@ -572,8 +607,13 @@ export function ShapeRenderer({
     const tickSize = 8 / viewportZoom;
     const fontSize = Math.max(12 / viewportZoom, 8);
     const labelWidth = Math.max(data.label.length * fontSize * 0.62, 34 / viewportZoom);
-    const labelHeight = fontSize * 1.45;
     const arrowSize = 7 / viewportZoom;
+    const lineSegments = getSplitDimensionLine(
+      data.lineStart,
+      data.lineEnd,
+      data.text,
+      labelWidth + 12 / viewportZoom
+    );
     const renderEndMark = (x: number, y: number, sign: -1 | 1) => {
       if (style.end === "slash") {
         return (
@@ -586,6 +626,10 @@ export function ShapeRenderer({
             strokeWidth={strokeWidth}
           />
         );
+      }
+
+      if (style.end === "dot") {
+        return <circle cx={x} cy={y} r={3.2 / viewportZoom} fill={stroke} />;
       }
 
       return (
@@ -640,27 +684,20 @@ export function ShapeRenderer({
           strokeWidth={strokeWidth}
           opacity={0.72}
         />
-        <line
-          x1={data.lineStart.x}
-          y1={data.lineStart.y}
-          x2={data.lineEnd.x}
-          y2={data.lineEnd.y}
-          stroke={stroke}
-          strokeWidth={strokeWidth}
-          strokeDasharray={style.dash}
-        />
+        {lineSegments.map((segment, index) => (
+          <line
+            key={`dimension-segment-${index}`}
+            x1={segment.x1}
+            y1={segment.y1}
+            x2={segment.x2}
+            y2={segment.y2}
+            stroke={stroke}
+            strokeWidth={strokeWidth}
+            strokeDasharray={style.dash}
+          />
+        ))}
         {renderEndMark(data.lineStart.x, data.lineStart.y, 1)}
         {renderEndMark(data.lineEnd.x, data.lineEnd.y, -1)}
-        <rect
-          x={data.text.x - labelWidth / 2}
-          y={data.text.y - labelHeight}
-          width={labelWidth}
-          height={labelHeight}
-          rx={3 / viewportZoom}
-          fill={style.textBg}
-          stroke="#ffffff"
-          strokeWidth={1 / viewportZoom}
-        />
         <text
           x={data.text.x}
           y={data.text.y - 6 / viewportZoom}

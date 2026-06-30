@@ -37,6 +37,7 @@ export type DimensionStylePreset =
   | "blue-assist"
   | "standard-arrow"
   | "engineering-slash"
+  | "dot-end"
   | "dashed";
 export type DimensionBindingKind =
   | "rect-width"

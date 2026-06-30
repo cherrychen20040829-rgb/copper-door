@@ -31,6 +31,7 @@ const DIMENSION_STYLE_OPTIONS: Array<{
   { label: "蓝色辅助", value: "blue-assist" },
   { label: "标准箭头", value: "standard-arrow" },
   { label: "工程斜线", value: "engineering-slash" },
+  { label: "圆点端点", value: "dot-end" },
   { label: "虚线标注", value: "dashed" },
 ];
 

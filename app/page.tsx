@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { PropertyPanel } from "@/components/panel/PropertyPanel";
 import { SvgCanvas } from "@/components/canvas/SvgCanvas";
+import { ExportPreviewModal } from "@/components/export/ExportPreviewModal";
 import { Toolbar } from "@/components/toolbar/Toolbar";
 import { useEditorStore } from "@/store/useEditorStore";
 
@@ -243,8 +244,10 @@ function ProjectListPage() {
 
 function EditorPage() {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
   const projects = useEditorStore((state) => state.projects);
   const currentProjectId = useEditorStore((state) => state.currentProjectId);
+  const shapes = useEditorStore((state) => state.shapes);
   const switchToDirectory = useEditorStore((state) => state.switchToDirectory);
   const saveProject = useEditorStore((state) => state.saveProject);
   const clearCanvas = useEditorStore((state) => state.clearCanvas);
@@ -286,6 +289,16 @@ function EditorPage() {
               保存项目
             </span>
           </button>
+          <button
+            type="button"
+            onClick={() => setIsExportOpen(true)}
+            className="group relative rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+          >
+            导出
+            <span className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2 whitespace-nowrap rounded bg-slate-900 px-2 py-1 text-xs font-medium text-white opacity-0 shadow transition delay-300 group-hover:opacity-100">
+              导出
+            </span>
+          </button>
           <div className="relative">
             <button
               type="button"
@@ -324,6 +337,14 @@ function EditorPage() {
           <PropertyPanel />
         </aside>
       </div>
+
+      {isExportOpen && (
+        <ExportPreviewModal
+          projectName={currentProject?.name ?? "铜门图纸"}
+          shapes={shapes}
+          onClose={() => setIsExportOpen(false)}
+        />
+      )}
     </div>
   );
 }
